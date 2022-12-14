@@ -1,6 +1,7 @@
 from functools import reduce
 from dataclasses import dataclass
 from collections.abc import Mapping
+from queue import Queue
 
 @dataclass
 class InventoryItem:
@@ -20,37 +21,39 @@ def formatLine(line: str) -> str:
 
 contents = readFile('/Users/seangottschalk/advent-of-code-2022/lib/day_12.txt')
 
-def findEnd(grid: list[list[str]], cur: tuple[int, int], end: tuple[int, int], visited: set[str], memo: Mapping[str, int]) -> int:
-    memoLookupKey = f'{cur[0]}_{cur[1]}'
-    if memoLookupKey in memo:
-        return memo[memoLookupKey]
-    
-    if cur[0] == end[0] and cur[1] == end[1]:
-        memo[memoLookupKey] = 0
-        return 0
-    
-    visited.add(memoLookupKey)
-    
-    curRow, curCol = cur
-    curHeight = grid[curRow][curCol]
-    options = [[curRow - 1, curCol], [curRow + 1, curCol], [curRow, curCol - 1], [curRow, curCol + 1]]
-    options = filter(lambda opt: opt[0] >= 0 and opt[0] < len(grid) and opt[1] >= 0 and opt[1] < len(grid[0]), options)
-    options = filter(lambda opt: f'{opt[0]}_{opt[1]}' not in visited, options)
-    options = list(filter(lambda opt: abs(ord(curHeight) - ord(grid[opt[0]][opt[1]])) <= 1, options))
-    if len(options) == 0:
-        memo[memoLookupKey] = float('inf')
-        return float('inf')
-    
-    minFound = float('inf')
-    for option in options:
-        minForOption = findEnd(grid, option, end, visited, memo)
-        if minForOption < minFound:
-            minFound = 1 + minForOption
-    
-    memo[memoLookupKey] = minFound
-    visited.remove(memoLookupKey)
-    return minFound
+def getKey(t):
+    return f'{t[0]}_{t[1]}'
 
+def bfs(grid, start, end):
+    visited = set()
+    distances = {}
+    queue = Queue()
+    queue.put(start)
+    visited.add(getKey(start))
+    while not queue.empty():
+        cur = queue.get()
+        curKey = getKey(cur)
+        if cur == start:
+            distances[curKey] = 0
+        
+        curRow, curCol = cur
+        curHeight = grid[curRow][curCol]
+        options = [[curRow - 1, curCol], [curRow + 1, curCol], [curRow, curCol - 1], [curRow, curCol + 1]]
+        options = filter(lambda opt: opt[0] >= 0 and opt[0] < len(grid) and opt[1] >= 0 and opt[1] < len(grid[0]), options)
+        options = list(filter(lambda opt: ord(grid[opt[0]][opt[1]]) - 1 <= ord(curHeight), options))
+
+        for option in options:
+            optKey = getKey(option)
+            if optKey not in visited:
+                if optKey not in distances:
+                    distances[optKey] = float('inf')
+                if distances[optKey] > distances[curKey] + 1:
+                    distances[optKey] = distances[curKey] + 1
+                if optKey == getKey(end):
+                    return distances[optKey]
+                queue.put(option)
+                visited.add(optKey)
+        
 
 def partA():
     grid = [] * len(contents)
@@ -70,14 +73,35 @@ def partA():
             row.append(value)
         grid.append(row)
 
-    visited: set[str] = set()
-    memo: Mapping[str, int] = {}
-    print(findEnd(grid, start, end, visited, memo))
+    print(bfs(grid, start, end))
     
     pass
 
 def partB():
+    grid = [] * len(contents)
+    starts = []
+    end = None
+    for rowNum in range(len(contents)):
+        line = contents[rowNum]
+        row = []
+        for colNum in range(len(line)):
+            value = line[colNum]
+            if value == 'S' or value == 'a':
+                starts.append((rowNum, colNum))
+                value = 'a'
+            if value == 'E':
+                end = (rowNum, colNum)
+                value = 'z'
+            row.append(value)
+        grid.append(row)
+    
+    minDist = float('inf')
+    for possibleStart in starts:
+        dist = bfs(grid, possibleStart, end)
+        if dist is not None and dist < minDist:
+            minDist = dist
+    print(minDist)
     pass
 
-partA()
+# partA()
 partB()
